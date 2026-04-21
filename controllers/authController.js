@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken"
 import User from "../models/user.js"
+import Customer from "../models/customer.js"
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h"
@@ -136,16 +137,16 @@ export const login = async (req, res) => {
 // Get current user profile (protected route example)
 export const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.userId)
-    if (!user) {
+    const customer = await Customer.findById(req.userId)
+    if (!customer) {
       return res.status(404).json({
         error: "Not found",
-        message: "User not found",
+        message: "Customer not found",
       })
     }
 
     res.json({
-      user,
+      user: customer,
     })
   } catch (error) {
     console.error("Profile error:", error)
