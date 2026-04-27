@@ -1,7 +1,7 @@
 import { query } from "../config/db.js"
 
 export const Product = {
-  async createTable() {
+  async ensureTable() {
     const sql = `
       CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
@@ -10,30 +10,53 @@ export const Product = {
       description TEXT,
       product_base_url VARCHAR(255),
       product_namespace VARCHAR(100),
+      tenant_id VARCHAR(100),
+      host_base_url VARCHAR(255),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
     `
     await query(sql)
+  },
+
+  async createTable() {
+    await this.ensureTable()
     console.log("Products table ready")
   },
 
-  async create({ name, slug, description }) {
+  async ensureMetadataColumns() {
+    await this.ensureTable()
+
     const sql = `
-      INSERT INTO products (name, slug, description)
-      VALUES ($1, $2, $3)
+      ALTER TABLE products
+      ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS host_base_url VARCHAR(255)
+    `
+    await query(sql)
+  },
+
+  async create({ name, slug, description, tenant_id, host_base_url }) {
+    await this.ensureMetadataColumns()
+
+    const sql = `
+      INSERT INTO products (name, slug, description, tenant_id, host_base_url)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `
-    const result = await query(sql, [name, slug, description])
+    const result = await query(sql, [name, slug, description, tenant_id, host_base_url])
     return result.rows[0]
   },
 
   async findById(id) {
+    await this.ensureMetadataColumns()
+
     const sql = `SELECT * FROM products WHERE id = $1`
     const result = await query(sql, [id])
     return result.rows[0]
   },
 
   async findAll() {
+    await this.ensureMetadataColumns()
+
     const sql = `
     SELECT 
       p.*,

@@ -3,6 +3,7 @@ import LicenseHistory from "../models/licenseHistory.js"
 import crypto from "crypto";
 import Product from "../models/product.js";
 import Customer from "../models/customer.js";
+import pool from "../config/db.js";
 
 const LICENSE_SECRET = process.env.LICENSE_SECRET;
 
@@ -27,6 +28,28 @@ const generateLicenseKey = ({
 
   return `LIC-${payloadBase64}.${signature}`;
 };
+
+const buildCheckoutNote = ({ plan_name, duration_label, purchase_summary, amount, currency }) => {
+  const parts = []
+
+  if (plan_name) {
+    parts.push(`Plan: ${plan_name}`)
+  }
+
+  if (duration_label) {
+    parts.push(`Duration: ${duration_label}`)
+  }
+
+  if (amount) {
+    parts.push(`Amount: ${amount} ${currency || "USD"}`)
+  }
+
+  if (purchase_summary) {
+    parts.push(`Summary: ${purchase_summary}`)
+  }
+
+  return parts.join(" | ") || "Portal checkout"
+}
 
 
 export const createLicense = async (req, res) => {
@@ -96,6 +119,139 @@ export const createLicense = async (req, res) => {
     });
   }
 };
+
+export const checkoutLicense = async (req, res) => {
+  const client = await pool.connect()
+  let transactionStarted = false
+
+  try {
+    const {
+      product_id,
+      expiration_at,
+      amount,
+      currency = "USD",
+      method = "card",
+      payment_status = "paid",
+      license_status = "valid",
+      plan_name,
+      duration_label,
+      purchase_summary,
+    } = req.body
+
+    if (!req.userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message: "Authenticated customer is required",
+      })
+    }
+
+    if (!product_id || !expiration_at || !amount) {
+      return res.status(400).json({
+        error: "Validation error",
+        message: "Product, expiration date and amount are required",
+      })
+    }
+
+    const numericAmount = Number(amount)
+
+    if (Number.isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({
+        error: "Validation error",
+        message: "Amount must be a positive number",
+      })
+    }
+
+    const expirationDate = new Date(expiration_at)
+
+    if (Number.isNaN(expirationDate.getTime())) {
+      return res.status(400).json({
+        error: "Validation error",
+        message: "Expiration date must be valid",
+      })
+    }
+
+    const product = await Product.findById(product_id)
+    if (!product) {
+      return res.status(404).json({
+        error: "Not found",
+        message: "Product not found",
+      })
+    }
+
+    const customer = await Customer.findById(req.userId)
+    if (!customer) {
+      return res.status(404).json({
+        error: "Not found",
+        message: "Customer not found",
+      })
+    }
+
+    const license_key = generateLicenseKey({
+      expirationAt: expiration_at,
+      product,
+      customer,
+    })
+
+    await client.query("BEGIN")
+    transactionStarted = true
+
+    const licenseResult = await client.query(
+      `
+        INSERT INTO licenses (license_key, status, customer_id, product_id, expiration_at)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      `,
+      [license_key, license_status, customer.id, product.id, expiration_at],
+    )
+    const license = licenseResult.rows[0]
+
+    await client.query(
+      `
+        INSERT INTO license_transaction_history (license_id, action, new_status, note)
+        VALUES ($1, $2, $3, $4)
+      `,
+      [
+        license.id,
+        "License Purchased",
+        license.status,
+        buildCheckoutNote({ plan_name, duration_label, purchase_summary, amount: numericAmount.toFixed(2), currency }),
+      ],
+    )
+
+    const paymentResult = await client.query(
+      `
+        INSERT INTO payments (customer_id, license_id, amount, currency, method, status)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `,
+      [customer.id, license.id, numericAmount.toFixed(2), currency, method, payment_status],
+    )
+    const payment = paymentResult.rows[0]
+
+    await client.query("COMMIT")
+
+    res.status(201).json({
+      message: "License purchased successfully",
+      license: {
+        ...license,
+        product,
+        customer,
+      },
+      payment,
+    })
+  } catch (error) {
+    if (transactionStarted) {
+      await client.query("ROLLBACK")
+    }
+    console.error("License checkout error:", error)
+    res.status(500).json({
+      error: "Server error",
+      message: "Failed to complete license checkout",
+    })
+  } finally {
+    client.release()
+  }
+}
 
 
 export const getLicense = async (req, res) => {

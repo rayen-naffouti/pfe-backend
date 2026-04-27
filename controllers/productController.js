@@ -2,16 +2,25 @@ import Product from "../models/product.js"
 
 export const createProduct = async (req, res) => {
   try {
-    const { name, slug, description } = req.body
+    const { name, slug, description, tenant_id, host_base_url } = req.body
 
-    if (!name || !slug) {
+    if (!name || !slug || !tenant_id || !host_base_url) {
       return res.status(400).json({
         error: "Validation error",
-        message: "Name and slug are required",
+        message: "Name, slug, tenant ID and host base URL are required",
       })
     }
 
-    const product = await Product.create({ name, slug, description })
+    try {
+      new URL(host_base_url)
+    } catch {
+      return res.status(400).json({
+        error: "Validation error",
+        message: "Host base URL must be a valid URL",
+      })
+    }
+
+    const product = await Product.create({ name, slug, description, tenant_id, host_base_url })
 
     res.status(201).json({
       message: "Product created successfully",

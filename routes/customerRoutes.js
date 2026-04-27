@@ -4,7 +4,7 @@ import express from "express"
 import { authenticateToken } from "../middleware/authMiddleware.js"
 import { getAllCustomers, getCustomer, registerCustomer, getCustomerByToken } from "../controllers/customerController.js"
 import { createProduct, getProducts } from "../controllers/productController.js"
-import { createLicense, getAllLicenses, getCustomerLicenses, getLicense } from "../controllers/licenseController.js"
+import { checkoutLicense, createLicense, getAllLicenses, getCustomerLicenses, getLicense } from "../controllers/licenseController.js"
 import { createPayment, getCustomerPayments } from "../controllers/paymentController.js"
 import { getLicenseHistory } from "../controllers/licenseHistoryController.js"
 const router = express.Router()
@@ -29,6 +29,7 @@ router.get("/products", authenticateToken, getProducts)
    LICENSE ROUTES
 -----------------------------------*/
 router.get("/licenses/", authenticateToken, getAllLicenses)
+router.post("/licenses/checkout", authenticateToken, checkoutLicense)
 router.post("/licenses", authenticateToken, createLicense)
 router.get("/licenses/:id", authenticateToken, getLicense)
 router.get("/customers/:customerId/licenses", authenticateToken, getCustomerLicenses)
@@ -46,4 +47,3 @@ router.get("/licenses/:licenseId/history", authenticateToken, getLicenseHistory)
 
 
 export default router
-
