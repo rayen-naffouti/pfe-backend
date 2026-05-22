@@ -11,7 +11,7 @@ export const Customer = {
         username VARCHAR(50) UNIQUE NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
-        role VARCHAR(20) DEFAULT 'customer',
+        role VARCHAR(20) DEFAULT 'user',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -20,7 +20,7 @@ export const Customer = {
     console.log("Customers table ready")
   },
 
-  async create({ username, email, password, role = "customer" }) {
+  async create({ username, email, password, role = "user" }) {
     const hashed = await bcrypt.hash(password, SALT_ROUNDS)
 
     const sql = `

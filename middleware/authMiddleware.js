@@ -1,9 +1,14 @@
 import jwt from "jsonwebtoken"
+import Customer from "../models/customer.js"
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
 
+const normalizeRole = (role) => {
+  return role === "admin" ? "admin" : "user"
+}
+
 // Middleware to protect routes using JWT
-export const authenticateToken = (req, res, next) => {
+export const authenticateToken = async (req, res, next) => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers["authorization"]
@@ -17,24 +22,51 @@ export const authenticateToken = (req, res, next) => {
     }
 
     // Verify token
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
-      if (err) {
-        if (err.name === "TokenExpiredError") {
-          return res.status(401).json({
-            error: "Unauthorized",
-            message: "Token has expired",
-          })
-        }
-        return res.status(403).json({
-          error: "Forbidden",
-          message: "Invalid token",
+    let decoded
+
+    try {
+      decoded = jwt.verify(token, JWT_SECRET)
+    } catch (err) {
+      if (err.name === "TokenExpiredError") {
+        return res.status(401).json({
+          error: "Unauthorized",
+          message: "Token has expired",
         })
       }
 
-      // Add user ID to request object
-      req.userId = decoded.userId
-      next()
-    })
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "Invalid token",
+      })
+    }
+
+    const userId = decoded.userId || decoded.id
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message: "Invalid token payload",
+      })
+    }
+
+    const customer = await Customer.findById(userId)
+
+    if (!customer) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message: "Authenticated account was not found",
+      })
+    }
+
+    // Add authenticated account metadata to request object
+    req.userId = customer.id
+    req.userRole = normalizeRole(customer.role)
+    req.user = {
+      ...customer,
+      role: req.userRole,
+    }
+
+    next()
   } catch (error) {
     console.error("Auth middleware error:", error)
     res.status(500).json({
@@ -44,9 +76,27 @@ export const authenticateToken = (req, res, next) => {
   }
 }
 
-// Optional: Middleware to check if user is admin (example for extending)
 export const requireAdmin = (req, res, next) => {
-  // This is a placeholder - implement admin check logic as needed
-  // For example, add an 'is_admin' column to users table
+  if (req.userRole !== "admin") {
+    return res.status(403).json({
+      error: "Forbidden",
+      message: "Admin access is required",
+    })
+  }
+
   next()
+}
+
+export const requireSelfOrAdmin = (paramName) => (req, res, next) => {
+  const requestedId = Number(req.params[paramName])
+
+  if (req.userRole === "admin" || Number(req.userId) === requestedId) {
+    next()
+    return
+  }
+
+  res.status(403).json({
+    error: "Forbidden",
+    message: "You can only access your own portal records",
+  })
 }

@@ -26,6 +26,17 @@ export const License = {
     return result.rows[0]
   },
 
+  async updateLicenseKey(id, license_key) {
+    const sql = `
+      UPDATE licenses
+      SET license_key = $1
+      WHERE id = $2
+      RETURNING *
+    `
+    const result = await query(sql, [license_key, id])
+    return result.rows[0]
+  },
+
   async findById(id) {
     const sql = `
       SELECT

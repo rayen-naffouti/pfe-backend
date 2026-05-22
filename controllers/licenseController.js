@@ -8,16 +8,22 @@ import pool from "../config/db.js";
 const LICENSE_SECRET = process.env.LICENSE_SECRET;
 
 const generateLicenseKey = ({
+  id,
   expirationAt,
   product,
-  customer
+  customer,
+  customPlan,
 }) => {
   const payload = {
+    id,
     exp: Math.floor(new Date(expirationAt).getTime() / 1000),
     product,
     customer
   };
 
+  if (customPlan) {
+    payload.customPlan = customPlan
+  }
 
   const payloadJson = JSON.stringify(payload);
   const payloadBase64 = Buffer.from(payloadJson).toString("base64url");
@@ -28,6 +34,16 @@ const generateLicenseKey = ({
 
   return `LIC-${payloadBase64}.${signature}`;
 };
+
+const generatePendingLicenseKey = () => `PENDING-${crypto.randomUUID()}`
+
+const normalizeCustomPlan = (customPlan) => {
+  if (!customPlan || typeof customPlan !== "object" || Array.isArray(customPlan)) {
+    return null
+  }
+
+  return customPlan
+}
 
 const buildCheckoutNote = ({ plan_name, duration_label, purchase_summary, amount, currency }) => {
   const parts = []
@@ -54,7 +70,7 @@ const buildCheckoutNote = ({ plan_name, duration_label, purchase_summary, amount
 
 export const createLicense = async (req, res) => {
   try {
-    const { status, customer_id, product_id, expiration_at } = req.body;
+    const { status, customer_id, product_id, expiration_at, custom_plan } = req.body;
 
     if (!customer_id || !product_id || !expiration_at) {
       return res.status(400).json({
@@ -79,14 +95,9 @@ export const createLicense = async (req, res) => {
       });
     }
 
-    const license_key = generateLicenseKey({
-      expirationAt: expiration_at,
-      product: product,
-      customer: customer
-    });
     // Create DB record first to get license ID
-    const license = await License.create({
-      license_key: license_key,
+    const initialLicense = await License.create({
+      license_key: generatePendingLicenseKey(),
       status: status || "trial",
       product_id,
       customer_id,
@@ -94,7 +105,14 @@ export const createLicense = async (req, res) => {
     });
 
     // Generate secure license key
-
+    const license_key = generateLicenseKey({
+      id: initialLicense.id,
+      expirationAt: expiration_at,
+      product: product,
+      customer: customer,
+      customPlan: normalizeCustomPlan(custom_plan),
+    });
+    const license = await License.updateLicenseKey(initialLicense.id, license_key)
 
     // Track creation history
     await LicenseHistory.create({
@@ -136,6 +154,7 @@ export const checkoutLicense = async (req, res) => {
       plan_name,
       duration_label,
       purchase_summary,
+      custom_plan,
     } = req.body
 
     if (!req.userId) {
@@ -186,11 +205,7 @@ export const checkoutLicense = async (req, res) => {
       })
     }
 
-    const license_key = generateLicenseKey({
-      expirationAt: expiration_at,
-      product,
-      customer,
-    })
+    const customPlan = normalizeCustomPlan(custom_plan)
 
     await client.query("BEGIN")
     transactionStarted = true
@@ -201,9 +216,27 @@ export const checkoutLicense = async (req, res) => {
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *
       `,
-      [license_key, license_status, customer.id, product.id, expiration_at],
+      [generatePendingLicenseKey(), license_status, customer.id, product.id, expiration_at],
     )
-    const license = licenseResult.rows[0]
+    let license = licenseResult.rows[0]
+
+    const license_key = generateLicenseKey({
+      id: license.id,
+      expirationAt: expiration_at,
+      product,
+      customer,
+      customPlan,
+    })
+    const updatedLicenseResult = await client.query(
+      `
+        UPDATE licenses
+        SET license_key = $1
+        WHERE id = $2
+        RETURNING *
+      `,
+      [license_key, license.id],
+    )
+    license = updatedLicenseResult.rows[0]
 
     await client.query(
       `

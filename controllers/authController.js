@@ -137,7 +137,7 @@ export const login = async (req, res) => {
 // Get current user profile (protected route example)
 export const getProfile = async (req, res) => {
   try {
-    const customer = await Customer.findById(req.userId)
+    const customer = req.user || await Customer.findById(req.userId)
     if (!customer) {
       return res.status(404).json({
         error: "Not found",
