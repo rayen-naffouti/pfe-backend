@@ -1,0 +1,73 @@
+%% Database ER diagram for the backend PostgreSQL schema.
+%% Derived from backend/models/*.js and controller queries.
+%% Note: licenses columns are inferred from INSERT/SELECT usage because
+%% backend/models/license.js currently alters the table but does not create it.
+
+erDiagram
+    USERS {
+        int id PK "SERIAL"
+        varchar username UK "VARCHAR(50), NOT NULL"
+        varchar email UK "VARCHAR(100), NOT NULL"
+        varchar password "VARCHAR(255), NOT NULL"
+        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
+        timestamp updated_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    CUSTOMERS {
+        int id PK "SERIAL"
+        varchar username UK "VARCHAR(50), NOT NULL"
+        varchar email UK "VARCHAR(100), NOT NULL"
+        varchar password "VARCHAR(255), NOT NULL"
+        varchar role "VARCHAR(20), DEFAULT 'user'"
+        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
+        timestamp updated_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    PRODUCTS {
+        int id PK "SERIAL"
+        varchar name "VARCHAR(100), NOT NULL"
+        varchar slug UK "VARCHAR(100), NOT NULL"
+        text description
+        varchar product_base_url "VARCHAR(255)"
+        varchar product_namespace "VARCHAR(100)"
+        varchar tenant_id "VARCHAR(100)"
+        varchar host_base_url "VARCHAR(255)"
+        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    LICENSES {
+        int id PK "SERIAL"
+        text license_key "TEXT"
+        varchar status "Inferred"
+        int customer_id FK "References customers.id"
+        int product_id FK "References products.id"
+        timestamp created_at "Inferred"
+        timestamp expiration_at "Required by API"
+    }
+
+    PAYMENTS {
+        int id PK "SERIAL"
+        int customer_id FK "References customers.id"
+        int license_id FK "References licenses.id"
+        decimal amount "NUMERIC(10,2), NOT NULL"
+        varchar currency "VARCHAR(10), DEFAULT 'USD'"
+        varchar method "VARCHAR(50)"
+        varchar status "VARCHAR(30), DEFAULT 'pending'"
+        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    LICENSE_TRANSACTION_HISTORY {
+        int id PK "SERIAL"
+        int license_id FK "References licenses.id ON DELETE CASCADE"
+        varchar action "VARCHAR(100), NOT NULL"
+        varchar old_status "VARCHAR(30)"
+        varchar new_status "VARCHAR(30)"
+        text note
+        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    CUSTOMERS ||--o{ LICENSES : owns
+    PRODUCTS ||--o{ LICENSES : provides
+    CUSTOMERS ||--o{ PAYMENTS : makes
+    LICENSES ||--o{ PAYMENTS : paid_by
+    LICENSES ||--o{ LICENSE_TRANSACTION_HISTORY : records

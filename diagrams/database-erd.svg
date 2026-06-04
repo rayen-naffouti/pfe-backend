@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="940" viewBox="0 0 1680 940" role="img" aria-labelledby="title desc">
+  <title id="title">Database entity relationship diagram</title>
+  <desc id="desc">Entity relationship diagram for users, customers, products, licenses, payments, and license transaction history tables.</desc>
+  <defs>
+    <style>
+      .canvas { fill: #f7fafc; }
+      .title { font: 700 26px Arial, sans-serif; fill: #172033; }
+      .subtitle { font: 400 14px Arial, sans-serif; fill: #526070; }
+      .table { fill: #ffffff; stroke: #c9d4df; stroke-width: 1.4; }
+      .header { fill: #164e63; }
+      .header-alt { fill: #284b63; }
+      .table-name { font: 700 15px Arial, sans-serif; fill: #ffffff; letter-spacing: 0; }
+      .field { font: 600 12px Arial, sans-serif; fill: #253244; }
+      .type { font: 400 12px Arial, sans-serif; fill: #5c6b7a; }
+      .muted { font: 400 11px Arial, sans-serif; fill: #718095; }
+      .row-line { stroke: #ecf1f5; stroke-width: 1; }
+      .relation { fill: none; stroke: #2563eb; stroke-width: 2.2; }
+      .relation-soft { fill: none; stroke: #0f766e; stroke-width: 2.2; }
+      .cardinality { font: 700 12px Arial, sans-serif; fill: #172033; }
+      .rel-label { font: 700 12px Arial, sans-serif; fill: #1f3b64; }
+      .label-bg { fill: #ffffff; stroke: #d8e2ec; stroke-width: 1; }
+    </style>
+    <marker id="many-blue" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="16" markerHeight="16" orient="auto">
+      <path d="M1 2 L15 8 L1 14 M1 8 L15 8" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="many-teal" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="16" markerHeight="16" orient="auto">
+      <path d="M1 2 L15 8 L1 14 M1 8 L15 8" fill="none" stroke="#0f766e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect class="canvas" x="0" y="0" width="1680" height="940"/>
+  <text class="title" x="48" y="42">Backend Database ERD</text>
+  <text class="subtitle" x="48" y="66">Generated from backend/models/*.js and license controller query usage.</text>
+
+  <g id="users-table">
+    <rect class="table" x="48" y="94" width="300" height="244" rx="8"/>
+    <path class="header-alt" d="M56 94h284a8 8 0 0 1 8 8v36H48v-36a8 8 0 0 1 8-8z"/>
+    <text class="table-name" x="70" y="121">USERS</text>
+    <text class="muted" x="255" y="121">standalone</text>
+    <line class="row-line" x1="48" y1="148" x2="348" y2="148"/>
+    <text class="field" x="70" y="170">PK id</text><text class="type" x="190" y="170">SERIAL</text>
+    <line class="row-line" x1="48" y1="184" x2="348" y2="184"/>
+    <text class="field" x="70" y="204">UK username</text><text class="type" x="190" y="204">VARCHAR(50)</text>
+    <line class="row-line" x1="48" y1="218" x2="348" y2="218"/>
+    <text class="field" x="70" y="238">UK email</text><text class="type" x="190" y="238">VARCHAR(100)</text>
+    <line class="row-line" x1="48" y1="252" x2="348" y2="252"/>
+    <text class="field" x="70" y="272">password</text><text class="type" x="190" y="272">VARCHAR(255)</text>
+    <line class="row-line" x1="48" y1="286" x2="348" y2="286"/>
+    <text class="field" x="70" y="306">created_at</text><text class="type" x="190" y="306">TIMESTAMP</text>
+    <line class="row-line" x1="48" y1="320" x2="348" y2="320"/>
+    <text class="field" x="70" y="330">updated_at</text><text class="type" x="190" y="330">TIMESTAMP</text>
+  </g>
+
+  <g id="customers-table">
+    <rect class="table" x="48" y="430" width="330" height="282" rx="8"/>
+    <path class="header" d="M56 430h314a8 8 0 0 1 8 8v36H48v-36a8 8 0 0 1 8-8z"/>
+    <text class="table-name" x="70" y="457">CUSTOMERS</text>
+    <line class="row-line" x1="48" y1="484" x2="378" y2="484"/>
+    <text class="field" x="70" y="506">PK id</text><text class="type" x="215" y="506">SERIAL</text>
+    <line class="row-line" x1="48" y1="520" x2="378" y2="520"/>
+    <text class="field" x="70" y="540">UK username</text><text class="type" x="215" y="540">VARCHAR(50)</text>
+    <line class="row-line" x1="48" y1="554" x2="378" y2="554"/>
+    <text class="field" x="70" y="574">UK email</text><text class="type" x="215" y="574">VARCHAR(100)</text>
+    <line class="row-line" x1="48" y1="588" x2="378" y2="588"/>
+    <text class="field" x="70" y="608">password</text><text class="type" x="215" y="608">VARCHAR(255)</text>
+    <line class="row-line" x1="48" y1="622" x2="378" y2="622"/>
+    <text class="field" x="70" y="642">role</text><text class="type" x="215" y="642">VARCHAR(20)</text>
+    <line class="row-line" x1="48" y1="656" x2="378" y2="656"/>
+    <text class="field" x="70" y="676">created_at</text><text class="type" x="215" y="676">TIMESTAMP</text>
+    <line class="row-line" x1="48" y1="690" x2="378" y2="690"/>
+    <text class="field" x="70" y="704">updated_at</text><text class="type" x="215" y="704">TIMESTAMP</text>
+  </g>
+
+  <g id="products-table">
+    <rect class="table" x="430" y="94" width="390" height="356" rx="8"/>
+    <path class="header" d="M438 94h374a8 8 0 0 1 8 8v36H430v-36a8 8 0 0 1 8-8z"/>
+    <text class="table-name" x="452" y="121">PRODUCTS</text>
+    <line class="row-line" x1="430" y1="148" x2="820" y2="148"/>
+    <text class="field" x="452" y="170">PK id</text><text class="type" x="632" y="170">SERIAL</text>
+    <line class="row-line" x1="430" y1="184" x2="820" y2="184"/>
+    <text class="field" x="452" y="204">name</text><text class="type" x="632" y="204">VARCHAR(100)</text>
+    <line class="row-line" x1="430" y1="218" x2="820" y2="218"/>
+    <text class="field" x="452" y="238">UK slug</text><text class="type" x="632" y="238">VARCHAR(100)</text>
+    <line class="row-line" x1="430" y1="252" x2="820" y2="252"/>
+    <text class="field" x="452" y="272">description</text><text class="type" x="632" y="272">TEXT</text>
+    <line class="row-line" x1="430" y1="286" x2="820" y2="286"/>
+    <text class="field" x="452" y="306">product_base_url</text><text class="type" x="632" y="306">VARCHAR(255)</text>
+    <line class="row-line" x1="430" y1="320" x2="820" y2="320"/>
+    <text class="field" x="452" y="340">product_namespace</text><text class="type" x="632" y="340">VARCHAR(100)</text>
+    <line class="row-line" x1="430" y1="354" x2="820" y2="354"/>
+    <text class="field" x="452" y="374">tenant_id</text><text class="type" x="632" y="374">VARCHAR(100)</text>
+    <line class="row-line" x1="430" y1="388" x2="820" y2="388"/>
+    <text class="field" x="452" y="408">host_base_url</text><text class="type" x="632" y="408">VARCHAR(255)</text>
+    <line class="row-line" x1="430" y1="422" x2="820" y2="422"/>
+    <text class="field" x="452" y="442">created_at</text><text class="type" x="632" y="442">TIMESTAMP</text>
+  </g>
+
+  <g id="licenses-table">
+    <rect class="table" x="900" y="250" width="350" height="276" rx="8"/>
+    <path class="header" d="M908 250h334a8 8 0 0 1 8 8v36H900v-36a8 8 0 0 1 8-8z"/>
+    <text class="table-name" x="922" y="277">LICENSES</text>
+    <text class="muted" x="1133" y="277">inferred</text>
+    <line class="row-line" x1="900" y1="304" x2="1250" y2="304"/>
+    <text class="field" x="922" y="326">PK id</text><text class="type" x="1088" y="326">SERIAL</text>
+    <line class="row-line" x1="900" y1="340" x2="1250" y2="340"/>
+    <text class="field" x="922" y="360">license_key</text><text class="type" x="1088" y="360">TEXT</text>
+    <line class="row-line" x1="900" y1="374" x2="1250" y2="374"/>
+    <text class="field" x="922" y="394">status</text><text class="type" x="1088" y="394">VARCHAR</text>
+    <line class="row-line" x1="900" y1="408" x2="1250" y2="408"/>
+    <text class="field" x="922" y="428">FK customer_id</text><text class="type" x="1088" y="428">INTEGER</text>
+    <line class="row-line" x1="900" y1="442" x2="1250" y2="442"/>
+    <text class="field" x="922" y="462">FK product_id</text><text class="type" x="1088" y="462">INTEGER</text>
+    <line class="row-line" x1="900" y1="476" x2="1250" y2="476"/>
+    <text class="field" x="922" y="496">created_at</text><text class="type" x="1088" y="496">TIMESTAMP</text>
+    <line class="row-line" x1="900" y1="510" x2="1250" y2="510"/>
+    <text class="field" x="922" y="518">expiration_at</text><text class="type" x="1088" y="518">TIMESTAMP</text>
+  </g>
+
+  <g id="payments-table">
+    <rect class="table" x="1320" y="94" width="320" height="316" rx="8"/>
+    <path class="header-alt" d="M1328 94h304a8 8 0 0 1 8 8v36h-320v-36a8 8 0 0 1 8-8z"/>
+    <text class="table-name" x="1342" y="121">PAYMENTS</text>
+    <line class="row-line" x1="1320" y1="148" x2="1640" y2="148"/>
+    <text class="field" x="1342" y="170">PK id</text><text class="type" x="1498" y="170">SERIAL</text>
+    <line class="row-line" x1="1320" y1="184" x2="1640" y2="184"/>
+    <text class="field" x="1342" y="204">FK customer_id</text><text class="type" x="1498" y="204">INTEGER</text>
+    <line class="row-line" x1="1320" y1="218" x2="1640" y2="218"/>
+    <text class="field" x="1342" y="238">FK license_id</text><text class="type" x="1498" y="238">INTEGER</text>
+    <line class="row-line" x1="1320" y1="252" x2="1640" y2="252"/>
+    <text class="field" x="1342" y="272">amount</text><text class="type" x="1498" y="272">NUMERIC(10,2)</text>
+    <line class="row-line" x1="1320" y1="286" x2="1640" y2="286"/>
+    <text class="field" x="1342" y="306">currency</text><text class="type" x="1498" y="306">VARCHAR(10)</text>
+    <line class="row-line" x1="1320" y1="320" x2="1640" y2="320"/>
+    <text class="field" x="1342" y="340">method</text><text class="type" x="1498" y="340">VARCHAR(50)</text>
+    <line class="row-line" x1="1320" y1="354" x2="1640" y2="354"/>
+    <text class="field" x="1342" y="368">status</text><text class="type" x="1498" y="368">VARCHAR(30)</text>
+    <line class="row-line" x1="1320" y1="388" x2="1640" y2="388"/>
+    <text class="field" x="1342" y="402">created_at</text><text class="type" x="1498" y="402">TIMESTAMP</text>
+  </g>
+
+  <g id="history-table">
+    <rect class="table" x="1320" y="560" width="330" height="290" rx="8"/>
+    <path class="header-alt" d="M1328 560h314a8 8 0 0 1 8 8v36h-330v-36a8 8 0 0 1 8-8z"/>
+    <text class="table-name" x="1342" y="587">LICENSE_TRANSACTION_HISTORY</text>
+    <line class="row-line" x1="1320" y1="614" x2="1650" y2="614"/>
+    <text class="field" x="1342" y="636">PK id</text><text class="type" x="1510" y="636">SERIAL</text>
+    <line class="row-line" x1="1320" y1="650" x2="1650" y2="650"/>
+    <text class="field" x="1342" y="670">FK license_id</text><text class="type" x="1510" y="670">INTEGER</text>
+    <line class="row-line" x1="1320" y1="684" x2="1650" y2="684"/>
+    <text class="field" x="1342" y="704">action</text><text class="type" x="1510" y="704">VARCHAR(100)</text>
+    <line class="row-line" x1="1320" y1="718" x2="1650" y2="718"/>
+    <text class="field" x="1342" y="738">old_status</text><text class="type" x="1510" y="738">VARCHAR(30)</text>
+    <line class="row-line" x1="1320" y1="752" x2="1650" y2="752"/>
+    <text class="field" x="1342" y="772">new_status</text><text class="type" x="1510" y="772">VARCHAR(30)</text>
+    <line class="row-line" x1="1320" y1="786" x2="1650" y2="786"/>
+    <text class="field" x="1342" y="806">note</text><text class="type" x="1510" y="806">TEXT</text>
+    <line class="row-line" x1="1320" y1="820" x2="1650" y2="820"/>
+    <text class="field" x="1342" y="840">created_at</text><text class="type" x="1510" y="840">TIMESTAMP</text>
+  </g>
+
+  <path class="relation" d="M378 552 C555 552 720 372 900 372" marker-end="url(#many-blue)"/>
+  <rect class="label-bg" x="595" y="421" width="62" height="24" rx="12"/>
+  <text class="rel-label" x="611" y="438">owns</text>
+  <text class="cardinality" x="386" y="545">1</text>
+  <text class="cardinality" x="862" y="365">0..*</text>
+
+  <path class="relation-soft" d="M820 254 C850 254 870 304 900 304" marker-end="url(#many-teal)"/>
+  <rect class="label-bg" x="808" y="276" width="76" height="24" rx="12"/>
+  <text class="rel-label" x="823" y="293">provides</text>
+  <text class="cardinality" x="790" y="248">1</text>
+  <text class="cardinality" x="862" y="303">0..*</text>
+
+  <path class="relation-soft" d="M378 664 C640 836 1120 536 1320 230" marker-end="url(#many-teal)"/>
+  <rect class="label-bg" x="773" y="636" width="64" height="24" rx="12"/>
+  <text class="rel-label" x="789" y="653">makes</text>
+  <text class="cardinality" x="386" y="681">1</text>
+  <text class="cardinality" x="1282" y="224">0..*</text>
+
+  <path class="relation" d="M1250 340 C1282 340 1292 238 1320 238" marker-end="url(#many-blue)"/>
+  <rect class="label-bg" x="1257" y="280" width="74" height="24" rx="12"/>
+  <text class="rel-label" x="1272" y="297">paid by</text>
+  <text class="cardinality" x="1230" y="334">1</text>
+  <text class="cardinality" x="1284" y="238">0..*</text>
+
+  <path class="relation" d="M1250 476 C1300 476 1278 668 1320 668" marker-end="url(#many-blue)"/>
+  <rect class="label-bg" x="1257" y="558" width="74" height="24" rx="12"/>
+  <text class="rel-label" x="1274" y="575">records</text>
+  <text class="cardinality" x="1230" y="469">1</text>
+  <text class="cardinality" x="1282" y="662">0..*</text>
+
+  <text class="subtitle" x="48" y="874">Legend: PK primary key, FK foreign key, UK unique key. Customers/products/licenses/payments/history are connected by application-level and model-level references.</text>
+  <text class="subtitle" x="48" y="898">The licenses table definition is inferred from inserts and selects because no CREATE TABLE statement for licenses exists in the current model file.</text>
+</svg>

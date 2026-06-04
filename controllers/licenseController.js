@@ -1,49 +1,119 @@
 import License from "../models/license.js"
 import LicenseHistory from "../models/licenseHistory.js"
-import crypto from "crypto";
-import Product from "../models/product.js";
-import Customer from "../models/customer.js";
-import pool from "../config/db.js";
+import crypto from "crypto"
+import fs from "fs"
+import jwt from "jsonwebtoken"
+import Product from "../models/product.js"
+import Customer from "../models/customer.js"
+import pool from "../config/db.js"
 
-const LICENSE_SECRET = process.env.LICENSE_SECRET;
+const LICENSE_ALGORITHM = "RS256"
+const LICENSE_VERSION = 1
+const LICENSE_PRIVATE_KEY_PATH = new URL("../private_key.pem", import.meta.url)
+
+let cachedLicensePrivateKey = null
+
+const getLicensePrivateKey = () => {
+  if (!cachedLicensePrivateKey) {
+    cachedLicensePrivateKey = fs.readFileSync(LICENSE_PRIVATE_KEY_PATH, "utf8")
+  }
+
+  return cachedLicensePrivateKey
+}
+
+const getStringValue = (value) => {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+const toLicenseIsoString = (value, { endOfDateOnly = false } = {}) => {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return `${value}T${endOfDateOnly ? "23:59:59" : "00:00:00"}.000Z`
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Invalid license date")
+  }
+
+  return date.toISOString()
+}
+
+const getCustomerName = ({ customerName, customer }) => {
+  return (
+    getStringValue(customerName) ||
+    getStringValue(customer?.username) ||
+    getStringValue(customer?.email) ||
+    "Local Customer"
+  )
+}
+
+const getClusterName = ({ clusterName, product }) => {
+  return (
+    getStringValue(clusterName) ||
+    getStringValue(product?.product_namespace) ||
+    getStringValue(product?.slug) ||
+    getStringValue(product?.name) ||
+    "local-cluster"
+  )
+}
+
+const getLicenseId = ({ licenseId, id, clusterName, product }) => {
+  return (
+    getStringValue(licenseId) ||
+    `${clusterName}-${getStringValue(product?.tenant_id) || id}`
+  )
+}
+
+const normalizeFeatures = (features) => {
+  if (!Array.isArray(features)) {
+    return []
+  }
+
+  return features
+    .map((feature) => getStringValue(feature))
+    .filter(Boolean)
+}
 
 const generateLicenseKey = ({
   id,
   expirationAt,
   product,
   customer,
-  customPlan,
+  customerName,
+  issuedAt = new Date(),
+  licenseId,
+  clusterName,
+  features,
 }) => {
+  const normalizedClusterName = getClusterName({ clusterName, product })
   const payload = {
-    id,
-    exp: Math.floor(new Date(expirationAt).getTime() / 1000),
-    product,
-    customer
-  };
-
-  if (customPlan) {
-    payload.customPlan = customPlan
+    version: LICENSE_VERSION,
+    licenseId: getLicenseId({
+      licenseId,
+      id,
+      clusterName: normalizedClusterName,
+      product,
+    }),
+    customer: getCustomerName({ customerName, customer }),
+    clusterName: normalizedClusterName,
+    issuedAt: toLicenseIsoString(issuedAt),
+    expirationDate: toLicenseIsoString(expirationAt, { endOfDateOnly: true }),
+    features: normalizeFeatures(features),
   }
 
-  const payloadJson = JSON.stringify(payload);
-  const payloadBase64 = Buffer.from(payloadJson).toString("base64url");
-  const signature = crypto
-    .createHmac("sha256", LICENSE_SECRET)
-    .update(payloadBase64)
-    .digest("hex");
-
-  return `LIC-${payloadBase64}.${signature}`;
-};
+  return jwt.sign(payload, getLicensePrivateKey(), {
+    algorithm: LICENSE_ALGORITHM,
+    noTimestamp: true,
+  })
+}
 
 const generatePendingLicenseKey = () => `PENDING-${crypto.randomUUID()}`
-
-const normalizeCustomPlan = (customPlan) => {
-  if (!customPlan || typeof customPlan !== "object" || Array.isArray(customPlan)) {
-    return null
-  }
-
-  return customPlan
-}
 
 const buildCheckoutNote = ({ plan_name, duration_label, purchase_summary, amount, currency }) => {
   const parts = []
@@ -70,29 +140,44 @@ const buildCheckoutNote = ({ plan_name, duration_label, purchase_summary, amount
 
 export const createLicense = async (req, res) => {
   try {
-    const { status, customer_id, product_id, expiration_at, custom_plan } = req.body;
+    const {
+      status,
+      customer_id,
+      product_id,
+      expiration_at,
+      licenseId,
+      license_id,
+      clusterName,
+      cluster_name,
+      customer: customerPayloadName,
+      customerName,
+      customer_name,
+      issuedAt,
+      issued_at,
+      features,
+    } = req.body
 
     if (!customer_id || !product_id || !expiration_at) {
       return res.status(400).json({
         error: "Validation error",
         message: "product ID, and expiration date are required",
-      });
+      })
     }
 
     // Fetch product from product_id
-    const product = await Product.findById(product_id);
+    const product = await Product.findById(product_id)
     if (!product) {
       return res.status(404).json({
         error: "Not found",
         message: "Product not found",
-      });
+      })
     }
-    const customer = await Customer.findById(customer_id);
+    const customer = await Customer.findById(customer_id)
     if (!customer) {
       return res.status(404).json({
         error: "Not found",
         message: "Customer not found",
-      });
+      })
     }
 
     // Create DB record first to get license ID
@@ -102,16 +187,20 @@ export const createLicense = async (req, res) => {
       product_id,
       customer_id,
       expiration_at,
-    });
+    })
 
     // Generate secure license key
     const license_key = generateLicenseKey({
       id: initialLicense.id,
       expirationAt: expiration_at,
-      product: product,
-      customer: customer,
-      customPlan: normalizeCustomPlan(custom_plan),
-    });
+      product,
+      customer,
+      customerName: customerName || customer_name || customerPayloadName,
+      licenseId: licenseId || license_id,
+      clusterName: clusterName || cluster_name,
+      issuedAt: issuedAt || issued_at,
+      features,
+    })
     const license = await License.updateLicenseKey(initialLicense.id, license_key)
 
     // Track creation history
@@ -120,7 +209,7 @@ export const createLicense = async (req, res) => {
       action: "License Created",
       new_status: license.status,
       note: "Initial creation",
-    });
+    })
 
     res.status(201).json({
       message: "License created successfully",
@@ -128,15 +217,15 @@ export const createLicense = async (req, res) => {
         ...license,
         product, // include the full product object
       },
-    });
+    })
   } catch (error) {
-    console.error("License creation error:", error);
+    console.error("License creation error:", error)
     res.status(500).json({
       error: "Server error",
       message: "Failed to create license",
-    });
+    })
   }
-};
+}
 
 export const checkoutLicense = async (req, res) => {
   const client = await pool.connect()
@@ -154,7 +243,16 @@ export const checkoutLicense = async (req, res) => {
       plan_name,
       duration_label,
       purchase_summary,
-      custom_plan,
+      licenseId,
+      license_id,
+      clusterName,
+      cluster_name,
+      customer: customerPayloadName,
+      customerName,
+      customer_name,
+      issuedAt,
+      issued_at,
+      features,
     } = req.body
 
     if (!req.userId) {
@@ -205,8 +303,6 @@ export const checkoutLicense = async (req, res) => {
       })
     }
 
-    const customPlan = normalizeCustomPlan(custom_plan)
-
     await client.query("BEGIN")
     transactionStarted = true
 
@@ -225,7 +321,11 @@ export const checkoutLicense = async (req, res) => {
       expirationAt: expiration_at,
       product,
       customer,
-      customPlan,
+      customerName: customerName || customer_name || customerPayloadName,
+      licenseId: licenseId || license_id,
+      clusterName: clusterName || cluster_name,
+      issuedAt: issuedAt || issued_at,
+      features,
     })
     const updatedLicenseResult = await client.query(
       `
