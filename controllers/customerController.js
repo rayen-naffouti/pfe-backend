@@ -1,5 +1,6 @@
 import Customer from "../models/customer.js"
 import jwt from "jsonwebtoken"
+import { requestAccountActivation } from "../services/accountActivationService.js"
 
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
@@ -27,6 +28,7 @@ const generateToken = (customer) => {
       userId: customer.id,
       role: normalizeRole(customer.role),
       accountType: "customer",
+      authVersion: Number(customer.auth_version || 0),
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN },
@@ -36,7 +38,9 @@ const generateToken = (customer) => {
 // Register a new customer
 export const registerCustomer = async (req, res) => {
   try {
-    const { username, email, password } = req.body
+    const username = String(req.body?.username || "").trim()
+    const email = String(req.body?.email || "").trim().toLowerCase()
+    const password = req.body?.password
 
     if (!username || !email || !password) {
       return res.status(400).json({
@@ -55,20 +59,57 @@ export const registerCustomer = async (req, res) => {
 
     const existingEmail = await Customer.findByEmail(email)
     if (existingEmail) {
+      if (!existingEmail.is_active) {
+        const activationResult = await requestAccountActivation({
+          customer: existingEmail,
+          requestedIp: req.ip,
+        })
+
+        if (activationResult.emailDelivery && activationResult.emailDelivery.status !== "sent") {
+          console.error("Account activation email delivery error:", activationResult.emailDelivery.message)
+        }
+
+        return res.status(202).json({
+          message: "This account already exists but is not active. Check your email for the activation link",
+          emailStatus: activationResult.emailDelivery?.status || "cooldown",
+        })
+      }
+
       return res.status(409).json({
         error: "Duplicate entry",
         message: "A customer with this email already exists",
       })
     }
 
-    const customer = sanitizeCustomer(await Customer.create({ username, email, password, role: "user" }))
+    const existingUsername = await Customer.findByUsername(username)
+    if (existingUsername) {
+      return res.status(409).json({
+        error: "Duplicate entry",
+        message: "A customer with this username already exists",
+      })
+    }
 
-    const token = generateToken(customer)
+    const customer = sanitizeCustomer(await Customer.create({
+      username,
+      email,
+      password,
+      role: "user",
+      isActive: false,
+    }))
+    const activationResult = await requestAccountActivation({
+      customer,
+      requestedIp: req.ip,
+      force: true,
+    })
+
+    if (activationResult.emailDelivery && activationResult.emailDelivery.status !== "sent") {
+      console.error("Account activation email delivery error:", activationResult.emailDelivery.message)
+    }
 
     res.status(201).json({
-      message: "Customer registered successfully",
+      message: "Account created. Check your email to activate your account before signing in",
       customer,
-      token,
+      emailStatus: activationResult.emailDelivery?.status || "pending",
     })
   } catch (error) {
     console.error("Customer register error:", error)
@@ -104,6 +145,22 @@ export const loginCustomer = async (req, res) => {
       return res.status(401).json({
         error: "Authentication failed",
         message: "Invalid email or password",
+      })
+    }
+
+    if (!customer.is_active) {
+      const activationResult = await requestAccountActivation({
+        customer,
+        requestedIp: req.ip,
+      })
+
+      if (activationResult.emailDelivery && activationResult.emailDelivery.status !== "sent") {
+        console.error("Account activation email delivery error:", activationResult.emailDelivery.message)
+      }
+
+      return res.status(403).json({
+        error: "Account inactive",
+        message: "Your account is not active yet. Check your email for the activation link",
       })
     }
 

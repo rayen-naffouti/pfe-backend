@@ -2,6 +2,16 @@ import express from "express"
 import { register, login, getProfile } from "../controllers/authController.js"
 import { authenticateToken } from "../middleware/authMiddleware.js"
 import { loginCustomer, registerCustomer } from "../controllers/customerController.js"
+import {
+  completeAccountActivation,
+  resendAccountActivation,
+  validateActivationToken,
+} from "../controllers/accountActivationController.js"
+import {
+  completePasswordReset,
+  forgotPassword,
+  validateResetToken,
+} from "../controllers/passwordResetController.js"
 // import User from "../models/user.js"
 // import Customer from "../models/customer.js"
 // import Payment from "../models/payment.js"
@@ -22,6 +32,12 @@ const router = express.Router()
 // Public routes
 router.post("/register", registerCustomer)
 router.post("/login", loginCustomer)
+router.post("/account-activation/resend", resendAccountActivation)
+router.get("/account-activation/validate", validateActivationToken)
+router.post("/account-activation", completeAccountActivation)
+router.post("/forgot-password", forgotPassword)
+router.get("/reset-password/validate", validateResetToken)
+router.post("/reset-password", completePasswordReset)
 
 
 

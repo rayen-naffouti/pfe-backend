@@ -5,6 +5,17 @@ import authRoutes from "./routes/authRoutes.js"
 import customerRoutes from "./routes/customerRoutes.js"
 import { testConnection } from "./config/db.js"
 import { requestLogger } from "./middleware/requestLogger.js"
+import { startNotificationScheduler } from "./services/notificationService.js"
+import AccountActivationToken from "./models/accountActivationToken.js"
+import AutomationSettings from "./models/automationSettings.js"
+import Customer from "./models/customer.js"
+import License from "./models/license.js"
+import LicenseHistory from "./models/licenseHistory.js"
+import Notification from "./models/notification.js"
+import PasswordResetToken from "./models/passwordResetToken.js"
+import Payment from "./models/payment.js"
+import Product from "./models/product.js"
+import User from "./models/user.js"
 
 // Load environment variables
 dotenv.config()
@@ -18,7 +29,25 @@ const allowedOrigins = new Set([
   "http://127.0.0.1:5173",
   "http://127.0.0.1:5174",
   "http://127.0.0.1:5175",
+  ...String(process.env.CORS_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 ])
+
+const ensureDatabaseSchema = async () => {
+  await User.createTable()
+  await Customer.createTable()
+  await Customer.ensureSecurityColumns()
+  await Product.createTable()
+  await License.createTable()
+  await Payment.createTable()
+  await LicenseHistory.createTable()
+  await Notification.ensureTable()
+  await AutomationSettings.ensureTable()
+  await AccountActivationToken.ensureTable()
+  await PasswordResetToken.ensureTable()
+}
 
 const getRequestPath = (req) => {
   try {
@@ -75,6 +104,8 @@ const startServer = async () => {
   try {
     // Test database connection
     await testConnection()
+    await ensureDatabaseSchema()
+    startNotificationScheduler()
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`)

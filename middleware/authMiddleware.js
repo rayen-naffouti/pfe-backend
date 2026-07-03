@@ -58,6 +58,20 @@ export const authenticateToken = async (req, res, next) => {
       })
     }
 
+    if (!customer.is_active) {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "Activate your account before continuing",
+      })
+    }
+
+    if (Number(decoded.authVersion ?? 0) !== Number(customer.auth_version || 0)) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message: "Your session is no longer valid. Please sign in again",
+      })
+    }
+
     // Add authenticated account metadata to request object
     req.userId = customer.id
     req.userRole = normalizeRole(customer.role)

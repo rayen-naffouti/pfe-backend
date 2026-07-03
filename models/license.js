@@ -3,8 +3,27 @@ import { query } from "../config/db.js"
 export const License = {
   async createTable() {
     const sql = `
-  ALTER TABLE licenses
-  ALTER COLUMN license_key TYPE TEXT
+      CREATE TABLE IF NOT EXISTS licenses (
+        id SERIAL PRIMARY KEY,
+        license_key TEXT NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'trial',
+        customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+        product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expiration_at TIMESTAMP
+      );
+
+      ALTER TABLE licenses
+        ALTER COLUMN license_key TYPE TEXT,
+        ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'trial',
+        ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+        ADD COLUMN IF NOT EXISTS product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS expiration_at TIMESTAMP;
+
+      CREATE INDEX IF NOT EXISTS idx_licenses_customer_id ON licenses(customer_id);
+      CREATE INDEX IF NOT EXISTS idx_licenses_product_id ON licenses(product_id);
+      CREATE INDEX IF NOT EXISTS idx_licenses_status ON licenses(status);
     `
     await query(sql)
     console.log("Licenses table ready")
@@ -34,6 +53,18 @@ export const License = {
       RETURNING *
     `
     const result = await query(sql, [license_key, id])
+    return result.rows[0]
+  },
+
+  async updateStatus(id, status) {
+    const sql = `
+      UPDATE licenses
+      SET status = $2
+      WHERE id = $1
+      RETURNING *
+    `
+    const result = await query(sql, [id, status])
+
     return result.rows[0]
   },
 

@@ -6,6 +6,12 @@ import jwt from "jsonwebtoken"
 import Product from "../models/product.js"
 import Customer from "../models/customer.js"
 import pool from "../config/db.js"
+import Notification from "../models/notification.js"
+import {
+  createLicensePurchaseNotifications,
+  getNotificationAutomationSettings,
+  sendNotificationEmail,
+} from "../services/notificationService.js"
 
 const LICENSE_ALGORITHM = "RS256"
 const LICENSE_VERSION = 1
@@ -278,7 +284,10 @@ export const checkoutLicense = async (req, res) => {
       })
     }
 
-    const expirationDate = new Date(expiration_at)
+    const isTestPlan = getStringValue(plan_name)?.toLowerCase() === "test plan"
+    const expirationDate = isTestPlan
+      ? new Date(Date.now() + 15 * 60_000)
+      : new Date(expiration_at)
 
     if (Number.isNaN(expirationDate.getTime())) {
       return res.status(400).json({
@@ -303,6 +312,21 @@ export const checkoutLicense = async (req, res) => {
       })
     }
 
+    await Notification.ensureTable()
+    const automationSettings = await getNotificationAutomationSettings()
+    const existingLicenseResult = await client.query(
+      `
+        SELECT id
+        FROM licenses
+        WHERE customer_id = $1
+          AND product_id = $2
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [customer.id, product.id],
+    )
+    const lifecycleAction = existingLicenseResult.rows.length > 0 ? "renewal" : "create"
+
     await client.query("BEGIN")
     transactionStarted = true
 
@@ -312,13 +336,13 @@ export const checkoutLicense = async (req, res) => {
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *
       `,
-      [generatePendingLicenseKey(), license_status, customer.id, product.id, expiration_at],
+      [generatePendingLicenseKey(), license_status, customer.id, product.id, expirationDate],
     )
     let license = licenseResult.rows[0]
 
     const license_key = generateLicenseKey({
       id: license.id,
-      expirationAt: expiration_at,
+      expirationAt: expirationDate,
       product,
       customer,
       customerName: customerName || customer_name || customerPayloadName,
@@ -361,7 +385,23 @@ export const checkoutLicense = async (req, res) => {
     )
     const payment = paymentResult.rows[0]
 
+    const notifications = await createLicensePurchaseNotifications({
+      client,
+      license,
+      customer,
+      product,
+      payment,
+      automationSettings,
+      purchaseSummary: purchase_summary,
+      lifecycleAction,
+      planName: plan_name,
+    })
+
     await client.query("COMMIT")
+
+    const emailDelivery = notifications.purchaseNotification
+      ? await sendNotificationEmail(notifications.purchaseNotification.id)
+      : null
 
     res.status(201).json({
       message: "License purchased successfully",
@@ -371,6 +411,10 @@ export const checkoutLicense = async (req, res) => {
         customer,
       },
       payment,
+      notifications: {
+        ...notifications,
+        emailDelivery,
+      },
     })
   } catch (error) {
     if (transactionStarted) {
